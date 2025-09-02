@@ -6,10 +6,12 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+# testing route
 @app.get("/")
 async def hello():
     return {"hello!" : "world!"}
 
+# pydantic model
 class User(BaseModel):
     id:Optional[int] = None
     name:str
