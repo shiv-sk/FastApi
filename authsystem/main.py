@@ -37,7 +37,7 @@ def compare_password(password: str , hashed_password: str)->bool:
 
 @app.post("/register" , status_code=status.HTTP_201_CREATED)
 def register_user(user:UserRegister , session: Session = Depends(get_session)):
-    # check email is already existc
+    # check email is already exist
     statement = select(User).where(User.email == user.email)
     exist_user = session.exec(statement).first()
     if exist_user:
