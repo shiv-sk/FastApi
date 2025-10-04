@@ -1,61 +1,11 @@
-from fastapi import FastAPI, Depends, status, HTTPException, Path
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-from typing import Annotated
-
-from database import engine, Base, get_db
-from model import Todo
+from fastapi import FastAPI
+from database import engine, Base
+from routers import auth , todos
 
 app = FastAPI()
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
-
-db_dependency = Annotated[Session, Depends(get_db)]
-
-class TodoRequest(BaseModel):
-    title:str = Field(... , min_length=3)
-    priority:str
-    is_closed:bool
-
-
-@app.get("/todos" , status_code= status.HTTP_200_OK)
-def get_all_todos(db:db_dependency):
-    todos = db.query(Todo).all()
-    if len(todos) == 0:
-        raise HTTPException(status_code=404 , detail="todos not found")
-    return todos
-
-@app.get("/todo/{todo_id}" , status_code=status.HTTP_200_OK)
-def get_a_todo(db:db_dependency , todo_id: int = Path(ge=0)):
-    todo = db.query(Todo).filter_by(id = todo_id).first()
-    if todo is not None:
-        return todo
-    raise HTTPException(status_code=404 , detail="todo not found")
-
-@app.post("/todo" , status_code=status.HTTP_201_CREATED)
-def add_todo(db: db_dependency , todo:TodoRequest):
-    new_todo = Todo(**todo.model_dump())
-    db.add(new_todo)
-    db.commit()
-
-@app.put("/todo/{todo_id}" , status_code=status.HTTP_204_NO_CONTENT)
-def update_todo(db: db_dependency , todo_request:TodoRequest , todo_id: int = Path(ge=0)):
-    todo = db.query(Todo).filter_by(id = todo_id).first()
-    if todo is None:
-        raise HTTPException(status_code=404 , detail="todo not found")
-    todo.title = todo_request.title
-    todo.priority = todo_request.priority
-    todo.is_closed = todo_request.is_closed
-    db.add(todo)
-    db.commit()
-
-
-@app.delete("/todo/{todo_id}" , status_code=status.HTTP_204_NO_CONTENT)
-def delete_todo(db: db_dependency , todo_id: int = Path(ge=0)):
-    todo = db.query(Todo).filter_by(id = todo_id).first()
-    if todo is None:
-        raise HTTPException(status_code=404 , detail="todo not found")
-    db.query(Todo).filter_by(id = todo_id).delete()
-    db.commit()
+app.include_router(auth.router)
+app.include_router(todos.router)
