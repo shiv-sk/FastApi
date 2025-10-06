@@ -2,12 +2,14 @@ from fastapi import Depends, status, HTTPException, Path , APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import Annotated
+from auth import get_current_user
 
 from database import get_db
 from model import Todo
 
 router = APIRouter()
 db_dependency = Annotated[Session, Depends(get_db)]
+user_dependency = Annotated[dict , Depends(get_current_user)]
 
 class TodoRequest(BaseModel):
     id:int
@@ -17,8 +19,8 @@ class TodoRequest(BaseModel):
 
 
 @router.get("/todos" , status_code= status.HTTP_200_OK)
-def get_all_todos(db:db_dependency):
-    todos = db.query(Todo).all()
+def get_all_todos(user: user_dependency , db:db_dependency):
+    todos = db.query(Todo).filter(Todo.owner_id == user.get('id')).all()
     if len(todos) == 0:
         raise HTTPException(status_code=404 , detail="todos not found")
     return todos
@@ -31,7 +33,9 @@ def get_a_todo(db:db_dependency , todo_id: int = Path(ge=0)):
     raise HTTPException(status_code=404 , detail="todo not found")
 
 @router.post("/todo" , status_code=status.HTTP_201_CREATED)
-def add_todo(db: db_dependency , todo:TodoRequest):
+def add_todo(user: user_dependency , db: db_dependency , todo:TodoRequest):
+    if user is None:
+        raise HTTPException(status_code=401 , detail="Authentication failed")
     new_todo = Todo(**todo.model_dump())
     db.add(new_todo)
     db.commit()
